@@ -83,6 +83,18 @@ def get_product_info(update: Update, context: CallbackContext):
     )
     return "HANDLE_DESCRIPTION"
 
+
+def get_back_product_list(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    request_headers = context.user_data.get("request_headers")
+    if query.data == "back":
+        query.message.reply_text(
+            "Товары в наличии:", reply_markup=get_products_keyboard(request_headers)
+        )
+        return "HANDLE_MENU"
+
+
 def handle_users_reply(update: Update, context: CallbackContext):
     if not context.user_data.get("redis_connection"):
         context.user_data["redis_connection"] = redis.Redis(
