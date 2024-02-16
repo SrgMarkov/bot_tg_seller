@@ -17,9 +17,9 @@ from telegram.ext import (
 logger = logging.getLogger("telegram_bot_seller")
 
 
-def get_product_details(product_id, api_auth):
+def get_product_details(product_id, api_auth, crm_connection):
     product_response = requests.get(
-        f"http://localhost:1337/api/fish-shops/{product_id}?populate=picture",
+        f"http://{crm_connection}/api/fish-shops/{product_id}?populate=picture",
         headers=api_auth,
         timeout=60,
     )
@@ -28,9 +28,9 @@ def get_product_details(product_id, api_auth):
     return product_details["data"]["attributes"]
 
 
-def get_products_keyboard(api_auth):
+def get_products_keyboard(api_auth, crm_connection):
     products_response = requests.get(
-        "http://localhost:1337/api/fish-shops/",
+        f"http://{crm_connection}/api/fish-shops/",
         headers=api_auth,
         timeout=60,
     )
@@ -47,9 +47,9 @@ def get_products_keyboard(api_auth):
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_or_create_cart(user_id, api_auth):
+def get_or_create_cart(user_id, api_auth, crm_connection):
     carts_response = requests.get(
-        "http://localhost:1337/api/carts", headers=api_auth, timeout=60
+        f"http://{crm_connection}/api/carts", headers=api_auth, timeout=60
     )
     carts_response.raise_for_status()
     for cart in carts_response.json()["data"]:
@@ -57,14 +57,17 @@ def get_or_create_cart(user_id, api_auth):
             return cart["id"]
     payload = {"data": {"tg_id": user_id}}
     created_cart = requests.post(
-        "http://localhost:1337/api/carts/", headers=api_auth, json=payload, timeout=60
+        f"http://{crm_connection}/api/carts/",
+        headers=api_auth,
+        json=payload,
+        timeout=60,
     )
     return created_cart.json()["data"]["id"]
 
 
-def show_cart(api_auth, cart_id):
+def show_cart(api_auth, cart_id, crm_connection):
     carts_response = requests.get(
-        f"http://localhost:1337/api/carts/{cart_id}?populate=cart_products",
+        f"http://{crm_connection}/api/carts/{cart_id}?populate=cart_products",
         headers=api_auth,
         timeout=60,
     )
@@ -75,9 +78,9 @@ def show_cart(api_auth, cart_id):
     cart_buttons = []
     summary_cost = 0
     for product in carts_response.json()["data"]["attributes"]["cart_products"]["data"]:
-        product_id = product['id']
+        product_id = product["id"]
         cart_products = requests.get(
-            f"http://localhost:1337/api/cart-products/{product_id}?populate=fish_shop",
+            f"http://{crm_connection}/api/cart-products/{product_id}?populate=fish_shop",
             headers=api_auth,
             timeout=60,
         )
@@ -102,16 +105,22 @@ def get_cart_keyboard(buttons):
         [InlineKeyboardButton(f"удалить {button}", callback_data=number)]
         for button, number in buttons
     ]
-    cart_keyboard.append([InlineKeyboardButton("Оформить заказ", callback_data="purchase")])
+    cart_keyboard.append(
+        [InlineKeyboardButton("Оформить заказ", callback_data="purchase")]
+    )
     cart_keyboard.append([InlineKeyboardButton("В меню", callback_data="back")])
     return InlineKeyboardMarkup(cart_keyboard)
 
 
 def start(update: Update, context: CallbackContext):
     context.user_data["chat_id"] = update.message.chat_id
+    context.user_data["crm_connection"] = f"{os.getenv('HOST')}:{os.getenv('PORT')}"
     update.message.reply_text(
         "Товары в наличии:",
-        reply_markup=get_products_keyboard(context.user_data.get("request_headers")),
+        reply_markup=get_products_keyboard(
+            context.user_data.get("request_headers"),
+            context.user_data.get("crm_connection"),
+        ),
     )
     return "HANDLE_MENU"
 
@@ -121,19 +130,23 @@ def get_product_info(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     context.user_data["product_id"] = query.data
+    crm_connection = context.user_data.get("crm_connection")
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             context.user_data.get("request_headers"),
-            get_or_create_cart(str(query.message.from_user.id), request_headers),
+            get_or_create_cart(
+                str(query.message.from_user.id), request_headers, crm_connection
+            ),
+            crm_connection,
         )
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         return "CART"
 
-    product = get_product_details(query.data, request_headers)
+    product = get_product_details(query.data, request_headers, crm_connection)
     picture_url = requests.get(
-        f"http://localhost:1337{product['picture']['data']['attributes']['formats']['medium']['url']}",
+        f"http://{crm_connection}{product['picture']['data']['attributes']['formats']['medium']['url']}",
         timeout=60,
     )
     picture_url.raise_for_status()
@@ -160,18 +173,20 @@ def get_back_product_list(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     request_headers = context.user_data.get("request_headers")
+    crm_connection = context.user_data.get("crm_connection")
     if query.data == "back":
         query.message.reply_text(
-            "Товары в наличии:", reply_markup=get_products_keyboard(request_headers)
+            "Товары в наличии:",
+            reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         return "HANDLE_MENU"
     if query.data == "to_cart":
         if not context.user_data.get("cart_id"):
             context.user_data["cart_id"] = get_or_create_cart(
-                str(query.message.from_user.id), request_headers
+                str(query.message.from_user.id), request_headers, crm_connection
             )
         products_in_cart = requests.get(
-            "http://localhost:1337/api/cart-products?populate=fish_shop",
+            f"http://{crm_connection}/api/cart-products?populate=fish_shop",
             headers=request_headers,
             timeout=60,
         )
@@ -183,14 +198,14 @@ def get_back_product_list(update: Update, context: CallbackContext):
             ):
                 payload = {"data": {"quantity": quantity}}
                 requests.put(
-                    f"http://localhost:1337/api/cart-products/{product['id']}",
+                    f"http://{crm_connection}/api/cart-products/{product['id']}",
                     json=payload,
                     headers=request_headers,
                     timeout=60,
                 )
                 query.message.reply_text(
                     "Хотите заказать что то ещё?",
-                    reply_markup=get_products_keyboard(request_headers),
+                    reply_markup=get_products_keyboard(request_headers, crm_connection),
                 )
                 return "HANDLE_MENU"
 
@@ -202,7 +217,7 @@ def get_back_product_list(update: Update, context: CallbackContext):
             }
         }
         requests.post(
-            "http://localhost:1337/api/cart-products/",
+            f"http://{crm_connection}/api/cart-products/",
             headers=request_headers,
             json=payload,
             timeout=60,
@@ -210,13 +225,16 @@ def get_back_product_list(update: Update, context: CallbackContext):
 
         query.message.reply_text(
             "Хотите заказать что то ещё?",
-            reply_markup=get_products_keyboard(request_headers),
+            reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         return "HANDLE_MENU"
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             request_headers,
-            get_or_create_cart(str(query.message.from_user.id), request_headers),
+            get_or_create_cart(
+                str(query.message.from_user.id), request_headers, crm_connection
+            ),
+            crm_connection,
         )
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
@@ -228,9 +246,11 @@ def handle_cart(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     request_headers = context.user_data.get("request_headers")
+    crm_connection = context.user_data.get("crm_connection")
     if query.data == "back":
         query.message.reply_text(
-            "Товары в наличии:", reply_markup=get_products_keyboard(request_headers)
+            "Товары в наличии:",
+            reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         return "HANDLE_MENU"
     if query.data == "purchase":
@@ -238,13 +258,16 @@ def handle_cart(update: Update, context: CallbackContext):
         return "WAITING_CONTACTS"
     try:
         requests.delete(
-            f"http://localhost:1337/api/cart-products/{query.data}",
+            f"http://{crm_connection}/api/cart-products/{query.data}",
             headers=request_headers,
             timeout=60,
         )
         cart_text, cart_buttons = show_cart(
             request_headers,
-            get_or_create_cart(str(query.message.from_user.id), request_headers),
+            get_or_create_cart(
+                str(query.message.from_user.id), request_headers, crm_connection
+            ),
+            crm_connection,
         )
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
@@ -259,22 +282,27 @@ def handle_email(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     username = update.message.from_user.name
     request_headers = context.user_data.get("request_headers")
+    crm_connection = context.user_data.get("crm_connection")
 
-    payload = {"data": {"username": username,
-                        "email": user_input,
-                        "tg_id":str(user_id),
-                        }}
+    payload = {
+        "data": {
+            "username": username,
+            "email": user_input,
+            "tg_id": str(user_id),
+        }
+    }
 
     requests.post(
-        "http://localhost:1337/api/customers/", 
+        f"http://{crm_connection}/api/customers/",
         headers=request_headers,
         json=payload,
-        timeout=60
+        timeout=60,
     )
     update.message.reply_text(f"{username}, ваш заказ оформлен")
     update.message.reply_text(
-            "Желаете заказать что то еще?:", reply_markup=get_products_keyboard(request_headers)
-        )
+        "Желаете заказать что то еще?:",
+        reply_markup=get_products_keyboard(request_headers, crm_connection),
+    )
     return "HANDLE_MENU"
 
 
