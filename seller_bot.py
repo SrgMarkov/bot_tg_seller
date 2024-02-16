@@ -5,7 +5,7 @@ import os
 import redis
 import requests
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import  Update
 from telegram.ext import Filters, Updater
 from telegram.ext import (
     CallbackQueryHandler,
@@ -14,7 +14,7 @@ from telegram.ext import (
     CallbackContext,
 )
 
-from seller_bot_keyboards import get_cart_keyboard, get_products_keyboard
+from seller_bot_keyboards import get_cart_keyboard, get_products_keyboard, get_product_keyboard
 
 logger = logging.getLogger("telegram_bot_seller")
 
@@ -108,11 +108,11 @@ def get_product_info(update: Update, context: CallbackContext):
     request_headers = context.user_data.get("request_headers")
     context.user_data["product_id"] = query.data
     crm_connection = context.user_data.get("crm_connection")
-    
+
     query.bot.delete_message(
         chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
     )
-    
+
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             context.user_data.get("request_headers"),
@@ -134,16 +134,11 @@ def get_product_info(update: Update, context: CallbackContext):
     picture_url.raise_for_status()
     image_data = BytesIO(picture_url.content)
 
-    keyboard = [
-        [InlineKeyboardButton("Назад", callback_data="back")],
-        [InlineKeyboardButton("Добавить в корзину", callback_data="to_cart")],
-        [InlineKeyboardButton("Моя корзина", callback_data="my_cart")],
-    ]
     query.bot.send_photo(
         photo=image_data,
         chat_id=context.user_data.get("chat_id"),
         caption=f"{product['title']} - {product['price']}р./килограмм \n\n {product['description']}",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=get_product_keyboard(),
     )
     return "HANDLE_DESCRIPTION"
 

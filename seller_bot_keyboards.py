@@ -31,3 +31,12 @@ def get_cart_keyboard(buttons):
     )
     cart_keyboard.append([InlineKeyboardButton("В меню", callback_data="back")])
     return InlineKeyboardMarkup(cart_keyboard)
+
+
+def get_product_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Назад", callback_data="back")],
+        [InlineKeyboardButton("Добавить в корзину", callback_data="to_cart")],
+        [InlineKeyboardButton("Моя корзина", callback_data="my_cart")],
+    ]
+    return InlineKeyboardMarkup(keyboard)
