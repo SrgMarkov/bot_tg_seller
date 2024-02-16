@@ -14,6 +14,8 @@ from telegram.ext import (
     CallbackContext,
 )
 
+logger = logging.getLogger("telegram_bot_seller")
+
 
 def get_product_details(product_id, api_auth):
     product_response = requests.get(
@@ -258,12 +260,12 @@ def handle_email(update: Update, context: CallbackContext):
     username = update.message.from_user.name
     request_headers = context.user_data.get("request_headers")
 
-    payload = {"data": {"username": username, 
+    payload = {"data": {"username": username,
                         "email": user_input,
                         "tg_id":str(user_id),
                         }}
 
-    created_cart = requests.post(
+    requests.post(
         "http://localhost:1337/api/customers/", 
         headers=request_headers,
         json=payload,
@@ -274,6 +276,7 @@ def handle_email(update: Update, context: CallbackContext):
             "Желаете заказать что то еще?:", reply_markup=get_products_keyboard(request_headers)
         )
     return "HANDLE_MENU"
+
 
 def handle_users_reply(update: Update, context: CallbackContext):
     if not context.user_data.get("redis_connection"):
