@@ -229,6 +229,36 @@ def get_back_product_list(update: Update, context: CallbackContext):
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         return "CART"
+    
+    
+def handle_cart(update: Update, context: CallbackContext):
+    query = update.callback_query
+    query.answer()
+    request_headers = context.user_data.get("request_headers")
+    if query.data == "back":
+        query.message.reply_text(
+            "Товары в наличии:", reply_markup=get_products_keyboard(request_headers)
+        )
+        return "HANDLE_MENU"
+    if query.data == "purchase":
+        query.message.reply_text("Для оформления заказа пожалуйста введите свой email:")
+        return "WAITING_CONTACTS"
+    try:
+        requests.delete(
+            f"http://localhost:1337/api/cart-products/{query.data}",
+            headers=request_headers,
+            timeout=60,
+        )
+        cart_text, cart_buttons = show_cart(
+            request_headers,
+            get_or_create_cart(str(query.message.from_user.id), request_headers),
+        )
+        query.message.reply_text(
+            cart_text, reply_markup=get_cart_keyboard(cart_buttons)
+        )
+        return "CART"
+    except Exception:
+        return "CART"
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
@@ -260,6 +290,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
         "START": start,
         "HANDLE_MENU": get_product_info,
         "HANDLE_DESCRIPTION": get_back_product_list,
+        "CART": handle_cart,
     }
     state_handler = states_functions[user_state]
 
