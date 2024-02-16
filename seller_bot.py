@@ -18,9 +18,11 @@ logger = logging.getLogger("telegram_bot_seller")
 
 
 def get_product_details(product_id, api_auth, crm_connection):
+    payload = {"populate": "picture"}
     product_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/{product_id}?populate=picture",
+        f"http://{crm_connection}/api/fish-shops/{product_id}",
         headers=api_auth,
+        params=payload,
         timeout=60,
     )
     product_response.raise_for_status()
@@ -66,9 +68,11 @@ def get_or_create_cart(user_id, api_auth, crm_connection):
 
 
 def show_cart(api_auth, cart_id, crm_connection):
+    payload = {"populate": "cart_products"}
     carts_response = requests.get(
-        f"http://{crm_connection}/api/carts/{cart_id}?populate=cart_products",
+        f"http://{crm_connection}/api/carts/{cart_id}",
         headers=api_auth,
+        params=payload,
         timeout=60,
     )
     if carts_response.status_code == 404:
@@ -79,9 +83,11 @@ def show_cart(api_auth, cart_id, crm_connection):
     summary_cost = 0
     for product in carts_response.json()["data"]["attributes"]["cart_products"]["data"]:
         product_id = product["id"]
+        payload = {"populate": "fish_shop"}
         cart_products = requests.get(
-            f"http://{crm_connection}/api/cart-products/{product_id}?populate=fish_shop",
+            f"http://{crm_connection}/api/cart-products/{product_id}",
             headers=api_auth,
+            params=payload,
             timeout=60,
         )
         cart_products.raise_for_status()
@@ -131,6 +137,11 @@ def get_product_info(update: Update, context: CallbackContext):
     request_headers = context.user_data.get("request_headers")
     context.user_data["product_id"] = query.data
     crm_connection = context.user_data.get("crm_connection")
+    
+    query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+    )
+    
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             context.user_data.get("request_headers"),
@@ -152,9 +163,6 @@ def get_product_info(update: Update, context: CallbackContext):
     picture_url.raise_for_status()
     image_data = BytesIO(picture_url.content)
 
-    query.bot.deleteMessage(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
-    )
     keyboard = [
         [InlineKeyboardButton("Назад", callback_data="back")],
         [InlineKeyboardButton("Добавить в корзину", callback_data="to_cart")],
@@ -174,6 +182,9 @@ def get_back_product_list(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     crm_connection = context.user_data.get("crm_connection")
+    query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+    )
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
@@ -185,11 +196,14 @@ def get_back_product_list(update: Update, context: CallbackContext):
             context.user_data["cart_id"] = get_or_create_cart(
                 str(query.message.from_user.id), request_headers, crm_connection
             )
+        payload = {'populate': 'fish_shop'}
         products_in_cart = requests.get(
-            f"http://{crm_connection}/api/cart-products?populate=fish_shop",
+            f"http://{crm_connection}/api/cart-products",
             headers=request_headers,
+            params=payload,
             timeout=60,
         )
+        products_in_cart.raise_for_status()
         products = products_in_cart.json()["data"]
         for product in products:
             quantity = product["attributes"]["quantity"] + 1
@@ -247,6 +261,9 @@ def handle_cart(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     crm_connection = context.user_data.get("crm_connection")
+    query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+    )
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
