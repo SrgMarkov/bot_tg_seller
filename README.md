@@ -7,14 +7,17 @@
 
 Первым делом необходимо установить [strapi](https://github.com/strapi/strapi?tab=readme-ov-file), CRM для интернет магазина
 
-```
+```sh
 npx create-strapi-app@latest seller_crm --quickstart
 ```
+
+Папку `api` в корне проекта необходимо переместить с заменой в `celler_crm/src/` для импорта структуры данных
+
 После установки crm откроется окно создания администратора. После чего наполните CRM контентом.
 Подробную инструкцию по использованию CRM можно посмотреть по [ссылке](https://docs.strapi.io/dev-docs/quick-start)
 
 Установите зависимости python коммандой
-```
+```sh
 python3 -r requirements.txt
 ```
 
