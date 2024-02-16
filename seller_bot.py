@@ -1,92 +1,36 @@
-from io import BytesIO
 import logging
 import os
 
 import redis
 import requests
 from dotenv import load_dotenv
-from telegram import  Update
-from telegram.ext import Filters, Updater
+from telegram import Update
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     CallbackContext,
+    Updater,
+    Filters
 )
 
-from seller_bot_keyboards import get_cart_keyboard, get_products_keyboard, get_product_keyboard
+from seller_bot_api import (
+    add_product_to_cart,
+    change_product_quantity,
+    delete_product_from_cart,
+    get_image_data,
+    get_product_details,
+    get_products_in_cart,
+    get_or_create_cart,
+    show_cart,
+)
+from seller_bot_keyboards import (
+    get_cart_keyboard,
+    get_products_keyboard,
+    get_product_keyboard,
+)
 
 logger = logging.getLogger("telegram_bot_seller")
-
-
-def get_product_details(product_id, api_auth, crm_connection):
-    payload = {"populate": "picture"}
-    product_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/{product_id}",
-        headers=api_auth,
-        params=payload,
-        timeout=60,
-    )
-    product_response.raise_for_status()
-    product_details = product_response.json()
-    return product_details["data"]["attributes"]
-
-
-def get_or_create_cart(user_id, api_auth, crm_connection):
-    carts_response = requests.get(
-        f"http://{crm_connection}/api/carts", headers=api_auth, timeout=60
-    )
-    carts_response.raise_for_status()
-    for cart in carts_response.json()["data"]:
-        if cart["attributes"]["tg_id"] == user_id:
-            return cart["id"]
-    payload = {"data": {"tg_id": user_id}}
-    created_cart = requests.post(
-        f"http://{crm_connection}/api/carts/",
-        headers=api_auth,
-        json=payload,
-        timeout=60,
-    )
-    return created_cart.json()["data"]["id"]
-
-
-def show_cart(api_auth, cart_id, crm_connection):
-    payload = {"populate": "cart_products"}
-    carts_response = requests.get(
-        f"http://{crm_connection}/api/carts/{cart_id}",
-        headers=api_auth,
-        params=payload,
-        timeout=60,
-    )
-    if carts_response.status_code == 404:
-        return "В корзину пока не добавлено ни одного товара"
-
-    cart_text = []
-    cart_buttons = []
-    summary_cost = 0
-    for product in carts_response.json()["data"]["attributes"]["cart_products"]["data"]:
-        product_id = product["id"]
-        payload = {"populate": "fish_shop"}
-        cart_products = requests.get(
-            f"http://{crm_connection}/api/cart-products/{product_id}",
-            headers=api_auth,
-            params=payload,
-            timeout=60,
-        )
-        cart_products.raise_for_status()
-        product_in_cart = cart_products.json()["data"]["attributes"]
-        product_quantity = product_in_cart["quantity"]
-        product = product_in_cart["fish_shop"]["data"]["attributes"]
-        product_position_cost = product_quantity * product["price"]
-        summary_cost += product_position_cost
-        cart_buttons.append((product["title"], product_id))
-        cart_text.append(
-            f"{product['title']}\nцена за кг. - {product['price']}р.\n{product_quantity}кг. в корзине за {round(product_position_cost, 2)}р.\n\n"
-        )
-    cart_text = (
-        f"{''.join(cart_text)}\n Итоговая стоимость - {round(summary_cost, 2)}р."
-    )
-    return cart_text, cart_buttons
 
 
 def start(update: Update, context: CallbackContext):
@@ -127,15 +71,8 @@ def get_product_info(update: Update, context: CallbackContext):
         return "CART"
 
     product = get_product_details(query.data, request_headers, crm_connection)
-    picture_url = requests.get(
-        f"http://{crm_connection}{product['picture']['data']['attributes']['formats']['medium']['url']}",
-        timeout=60,
-    )
-    picture_url.raise_for_status()
-    image_data = BytesIO(picture_url.content)
-
     query.bot.send_photo(
-        photo=image_data,
+        photo=get_image_data(product, crm_connection),
         chat_id=context.user_data.get("chat_id"),
         caption=f"{product['title']} - {product['price']}р./килограмм \n\n {product['description']}",
         reply_markup=get_product_keyboard(),
@@ -162,46 +99,20 @@ def get_back_product_list(update: Update, context: CallbackContext):
             context.user_data["cart_id"] = get_or_create_cart(
                 str(query.message.from_user.id), request_headers, crm_connection
             )
-        payload = {'populate': 'fish_shop'}
-        products_in_cart = requests.get(
-            f"http://{crm_connection}/api/cart-products",
-            headers=request_headers,
-            params=payload,
-            timeout=60,
-        )
-        products_in_cart.raise_for_status()
-        products = products_in_cart.json()["data"]
-        for product in products:
+
+        for product in get_products_in_cart(request_headers, crm_connection):
             quantity = product["attributes"]["quantity"] + 1
             if int(context.user_data.get("product_id")) == int(
                 product["attributes"]["fish_shop"]["data"]["id"]
             ):
-                payload = {"data": {"quantity": quantity}}
-                requests.put(
-                    f"http://{crm_connection}/api/cart-products/{product['id']}",
-                    json=payload,
-                    headers=request_headers,
-                    timeout=60,
-                )
+                change_product_quantity(request_headers, product['id'], quantity, crm_connection)
                 query.message.reply_text(
                     "Хотите заказать что то ещё?",
                     reply_markup=get_products_keyboard(request_headers, crm_connection),
                 )
                 return "HANDLE_MENU"
 
-        payload = {
-            "data": {
-                "quantity": 1,
-                "fish_shop": {"connect": [int(context.user_data.get("product_id"))]},
-                "carts": {"connect": [context.user_data.get("cart_id")]},
-            }
-        }
-        requests.post(
-            f"http://{crm_connection}/api/cart-products/",
-            headers=request_headers,
-            json=payload,
-            timeout=60,
-        )
+        add_product_to_cart(int(context.user_data.get("product_id")), context.user_data.get("cart_id"), request_headers, crm_connection)
 
         query.message.reply_text(
             "Хотите заказать что то ещё?",
@@ -240,11 +151,8 @@ def handle_cart(update: Update, context: CallbackContext):
         query.message.reply_text("Для оформления заказа пожалуйста введите свой email:")
         return "WAITING_CONTACTS"
     try:
-        requests.delete(
-            f"http://{crm_connection}/api/cart-products/{query.data}",
-            headers=request_headers,
-            timeout=60,
-        )
+        delete_product_from_cart(query.data, request_headers, crm_connection)
+
         cart_text, cart_buttons = show_cart(
             request_headers,
             get_or_create_cart(
