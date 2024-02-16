@@ -14,6 +14,8 @@ from telegram.ext import (
     CallbackContext,
 )
 
+from seller_bot_keyboards import get_cart_keyboard, get_products_keyboard
+
 logger = logging.getLogger("telegram_bot_seller")
 
 
@@ -28,25 +30,6 @@ def get_product_details(product_id, api_auth, crm_connection):
     product_response.raise_for_status()
     product_details = product_response.json()
     return product_details["data"]["attributes"]
-
-
-def get_products_keyboard(api_auth, crm_connection):
-    products_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/",
-        headers=api_auth,
-        timeout=60,
-    )
-    products_response.raise_for_status()
-    keyboard = [
-        [
-            InlineKeyboardButton(
-                product["attributes"]["title"], callback_data=int(product["id"])
-            )
-        ]
-        for product in products_response.json()["data"]
-    ]
-    keyboard.append([InlineKeyboardButton("Моя корзина", callback_data="my_cart")])
-    return InlineKeyboardMarkup(keyboard)
 
 
 def get_or_create_cart(user_id, api_auth, crm_connection):
@@ -98,24 +81,12 @@ def show_cart(api_auth, cart_id, crm_connection):
         summary_cost += product_position_cost
         cart_buttons.append((product["title"], product_id))
         cart_text.append(
-            f"{product['title']}\nцена за кг. - {product['price']}р.\n{product_quantity}кг. в корзине за {product_position_cost}р.\n\n"
+            f"{product['title']}\nцена за кг. - {product['price']}р.\n{product_quantity}кг. в корзине за {round(product_position_cost, 2)}р.\n\n"
         )
     cart_text = (
         f"{''.join(cart_text)}\n Итоговая стоимость - {round(summary_cost, 2)}р."
     )
     return cart_text, cart_buttons
-
-
-def get_cart_keyboard(buttons):
-    cart_keyboard = [
-        [InlineKeyboardButton(f"удалить {button}", callback_data=number)]
-        for button, number in buttons
-    ]
-    cart_keyboard.append(
-        [InlineKeyboardButton("Оформить заказ", callback_data="purchase")]
-    )
-    cart_keyboard.append([InlineKeyboardButton("В меню", callback_data="back")])
-    return InlineKeyboardMarkup(cart_keyboard)
 
 
 def start(update: Update, context: CallbackContext):

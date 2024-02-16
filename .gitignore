@@ -3,3 +3,4 @@ pylintrc
 .DS_Store
 .venv/
 test.py
+__pycache__/
