@@ -1,10 +1,10 @@
+from io import BytesIO
 import logging
 import os
 
 import redis
 import requests
 from dotenv import load_dotenv
-from io import BytesIO
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Filters, Updater
 from telegram.ext import (
@@ -103,15 +103,6 @@ def get_cart_keyboard(buttons):
     cart_keyboard.append([InlineKeyboardButton("Оформить заказ", callback_data="purchase")])
     cart_keyboard.append([InlineKeyboardButton("В меню", callback_data="back")])
     return InlineKeyboardMarkup(cart_keyboard)
-
-
-def start(update: Update, context: CallbackContext):
-    context.user_data["chat_id"] = update.message.chat_id
-    update.message.reply_text(
-        "Товары в наличии:",
-        reply_markup=get_products_keyboard(context.user_data.get("request_headers")),
-    )
-    return "HANDLE_MENU"
 
 
 def start(update: Update, context: CallbackContext):
@@ -229,8 +220,8 @@ def get_back_product_list(update: Update, context: CallbackContext):
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         return "CART"
-    
-    
+
+
 def handle_cart(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
@@ -260,6 +251,29 @@ def handle_cart(update: Update, context: CallbackContext):
     except Exception:
         return "CART"
 
+
+def handle_email(update: Update, context: CallbackContext):
+    user_input = update.message.text
+    user_id = update.message.from_user.id
+    username = update.message.from_user.name
+    request_headers = context.user_data.get("request_headers")
+
+    payload = {"data": {"username": username, 
+                        "email": user_input,
+                        "tg_id":str(user_id),
+                        }}
+
+    created_cart = requests.post(
+        "http://localhost:1337/api/customers/", 
+        headers=request_headers,
+        json=payload,
+        timeout=60
+    )
+    update.message.reply_text(f"{username}, ваш заказ оформлен")
+    update.message.reply_text(
+            "Желаете заказать что то еще?:", reply_markup=get_products_keyboard(request_headers)
+        )
+    return "HANDLE_MENU"
 
 def handle_users_reply(update: Update, context: CallbackContext):
     if not context.user_data.get("redis_connection"):
@@ -291,6 +305,7 @@ def handle_users_reply(update: Update, context: CallbackContext):
         "HANDLE_MENU": get_product_info,
         "HANDLE_DESCRIPTION": get_back_product_list,
         "CART": handle_cart,
+        "WAITING_CONTACTS": handle_email,
     }
     state_handler = states_functions[user_state]
 
