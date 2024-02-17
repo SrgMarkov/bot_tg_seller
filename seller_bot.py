@@ -2,7 +2,6 @@ import logging
 import os
 
 import redis
-import requests
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
@@ -11,7 +10,7 @@ from telegram.ext import (
     MessageHandler,
     CallbackContext,
     Updater,
-    Filters
+    Filters,
 )
 
 from seller_bot_api import (
@@ -23,6 +22,7 @@ from seller_bot_api import (
     get_products_in_cart,
     get_or_create_cart,
     show_cart,
+    post_email,
 )
 from seller_bot_keyboards import (
     get_cart_keyboard,
@@ -105,14 +105,21 @@ def get_back_product_list(update: Update, context: CallbackContext):
             if int(context.user_data.get("product_id")) == int(
                 product["attributes"]["fish_shop"]["data"]["id"]
             ):
-                change_product_quantity(request_headers, product['id'], quantity, crm_connection)
+                change_product_quantity(
+                    request_headers, product["id"], quantity, crm_connection
+                )
                 query.message.reply_text(
                     "Хотите заказать что то ещё?",
                     reply_markup=get_products_keyboard(request_headers, crm_connection),
                 )
                 return "HANDLE_MENU"
 
-        add_product_to_cart(int(context.user_data.get("product_id")), context.user_data.get("cart_id"), request_headers, crm_connection)
+        add_product_to_cart(
+            int(context.user_data.get("product_id")),
+            context.user_data.get("cart_id"),
+            request_headers,
+            crm_connection,
+        )
 
         query.message.reply_text(
             "Хотите заказать что то ещё?",
@@ -175,20 +182,8 @@ def handle_email(update: Update, context: CallbackContext):
     request_headers = context.user_data.get("request_headers")
     crm_connection = context.user_data.get("crm_connection")
 
-    payload = {
-        "data": {
-            "username": username,
-            "email": user_input,
-            "tg_id": str(user_id),
-        }
-    }
+    post_email(username, user_input, user_id, request_headers, crm_connection)
 
-    requests.post(
-        f"http://{crm_connection}/api/customers/",
-        headers=request_headers,
-        json=payload,
-        timeout=60,
-    )
     update.message.reply_text(f"{username}, ваш заказ оформлен")
     update.message.reply_text(
         "Желаете заказать что то еще?:",
