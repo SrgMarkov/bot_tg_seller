@@ -35,7 +35,7 @@ logger = logging.getLogger("telegram_bot_seller")
 
 def start(update: Update, context: CallbackContext):
     context.user_data["chat_id"] = update.message.chat_id
-    context.user_data["crm_connection"] = f"{os.getenv('HOST')}:{os.getenv('PORT')}"
+    context.user_data["crm_connection"] = os.getenv('CRM_CONNECTION')
     update.message.reply_text(
         "Товары в наличии:",
         reply_markup=get_products_keyboard(

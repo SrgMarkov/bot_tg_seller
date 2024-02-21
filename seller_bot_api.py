@@ -5,7 +5,7 @@ import requests
 def get_product_details(product_id, api_auth, crm_connection):
     payload = {"populate": "picture"}
     product_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/{product_id}",
+        f"{crm_connection}/api/fish-shops/{product_id}",
         headers=api_auth,
         params=payload,
         timeout=60,
@@ -17,7 +17,7 @@ def get_product_details(product_id, api_auth, crm_connection):
 
 def get_or_create_cart(user_id, api_auth, crm_connection):
     carts_response = requests.get(
-        f"http://{crm_connection}/api/carts", headers=api_auth, timeout=60
+        f"{crm_connection}/api/carts", headers=api_auth, timeout=60
     )
     carts_response.raise_for_status()
     for cart in carts_response.json()["data"]:
@@ -25,7 +25,7 @@ def get_or_create_cart(user_id, api_auth, crm_connection):
             return cart["id"]
     payload = {"data": {"tg_id": user_id}}
     created_cart = requests.post(
-        f"http://{crm_connection}/api/carts/",
+        f"{crm_connection}/api/carts/",
         headers=api_auth,
         json=payload,
         timeout=60,
@@ -37,7 +37,7 @@ def get_or_create_cart(user_id, api_auth, crm_connection):
 def show_cart(api_auth, cart_id, crm_connection):
     payload = {"populate": "cart_products"}
     carts_response = requests.get(
-        f"http://{crm_connection}/api/carts/{cart_id}",
+        f"{crm_connection}/api/carts/{cart_id}",
         headers=api_auth,
         params=payload,
         timeout=60,
@@ -53,7 +53,7 @@ def show_cart(api_auth, cart_id, crm_connection):
         product_id = product["id"]
         payload = {"populate": "fish_shop"}
         cart_products = requests.get(
-            f"http://{crm_connection}/api/cart-products/{product_id}",
+            f"{crm_connection}/api/cart-products/{product_id}",
             headers=api_auth,
             params=payload,
             timeout=60,
@@ -76,7 +76,7 @@ def show_cart(api_auth, cart_id, crm_connection):
 
 def get_image_data(product, crm_connection):
     picture_url = requests.get(
-        f"http://{crm_connection}{product['picture']['data']['attributes']['formats']['medium']['url']}",
+        f"{crm_connection}{product['picture']['data']['attributes']['formats']['medium']['url']}",
         timeout=60,
     )
     picture_url.raise_for_status()
@@ -86,7 +86,7 @@ def get_image_data(product, crm_connection):
 def get_products_in_cart(api_token, crm_connection):
     payload = {"populate": "fish_shop"}
     products_in_cart = requests.get(
-        f"http://{crm_connection}/api/cart-products",
+        f"{crm_connection}/api/cart-products",
         headers=api_token,
         params=payload,
         timeout=60,
@@ -98,7 +98,7 @@ def get_products_in_cart(api_token, crm_connection):
 def change_product_quantity(api_token, product_id, quantity, crm_connection):
     payload = {"data": {"quantity": quantity}}
     change_response = requests.put(
-        f"http://{crm_connection}/api/cart-products/{product_id}",
+        f"{crm_connection}/api/cart-products/{product_id}",
         json=payload,
         headers=api_token,
         timeout=60,
@@ -115,7 +115,7 @@ def add_product_to_cart(product_id, cart_id, api_token, crm_connection):
         }
     }
     add_response = requests.post(
-        f"http://{crm_connection}/api/cart-products/",
+        f"{crm_connection}/api/cart-products/",
         headers=api_token,
         json=payload,
         timeout=60,
@@ -125,7 +125,7 @@ def add_product_to_cart(product_id, cart_id, api_token, crm_connection):
 
 def delete_product_from_cart(product, api_token, crm_connection):
     delete_response = requests.delete(
-        f"http://{crm_connection}/api/cart-products/{product}",
+        f"{crm_connection}/api/cart-products/{product}",
         headers=api_token,
         timeout=60,
     )
@@ -141,7 +141,7 @@ def post_email(username, email, user_id, api_token, crm_connection):
         }
     }
     email_response = requests.post(
-        f"http://{crm_connection}/api/customers/",
+        f"{crm_connection}/api/customers/",
         headers=api_token,
         json=payload,
         timeout=60,
@@ -151,7 +151,7 @@ def post_email(username, email, user_id, api_token, crm_connection):
 
 def get_products(api_auth, crm_connection):
     products_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/",
+        f"{crm_connection}/api/fish-shops/",
         headers=api_auth,
         timeout=60,
     )
