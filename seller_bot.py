@@ -53,10 +53,6 @@ def get_product_info(update: Update, context: CallbackContext):
     context.user_data["product_id"] = query.data
     crm_connection = context.user_data.get("crm_connection")
 
-    query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
-    )
-
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             context.user_data.get("request_headers"),
@@ -68,6 +64,9 @@ def get_product_info(update: Update, context: CallbackContext):
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+        )
         return "CART"
 
     product = get_product_details(query.data, request_headers, crm_connection)
@@ -77,6 +76,9 @@ def get_product_info(update: Update, context: CallbackContext):
         caption=f"{product['title']} - {product['price']}р./килограмм \n\n {product['description']}",
         reply_markup=get_product_keyboard(),
     )
+    query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+    )
     return "HANDLE_DESCRIPTION"
 
 
@@ -85,13 +87,14 @@ def get_back_product_list(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     crm_connection = context.user_data.get("crm_connection")
-    query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
-    )
+
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
             reply_markup=get_products_keyboard(request_headers, crm_connection),
+        )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
         )
         return "HANDLE_MENU"
     if query.data == "to_cart":
@@ -112,6 +115,9 @@ def get_back_product_list(update: Update, context: CallbackContext):
                     "Хотите заказать что то ещё?",
                     reply_markup=get_products_keyboard(request_headers, crm_connection),
                 )
+                query.bot.delete_message(
+                chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+                )
                 return "HANDLE_MENU"
 
         add_product_to_cart(
@@ -125,6 +131,9 @@ def get_back_product_list(update: Update, context: CallbackContext):
             "Хотите заказать что то ещё?",
             reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+        )
         return "HANDLE_MENU"
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
@@ -137,6 +146,9 @@ def get_back_product_list(update: Update, context: CallbackContext):
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+        )
         return "CART"
 
 
@@ -145,17 +157,20 @@ def handle_cart(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     crm_connection = context.user_data.get("crm_connection")
-    query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
-    )
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
             reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+        )
         return "HANDLE_MENU"
     if query.data == "purchase":
         query.message.reply_text("Для оформления заказа пожалуйста введите свой email:")
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+        )
         return "WAITING_CONTACTS"
     try:
         delete_product_from_cart(query.data, request_headers, crm_connection)
@@ -169,6 +184,9 @@ def handle_cart(update: Update, context: CallbackContext):
         )
         query.message.reply_text(
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
+        )
+        query.bot.delete_message(
+        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
         )
         return "CART"
     except Exception:
