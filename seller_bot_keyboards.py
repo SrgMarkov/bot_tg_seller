@@ -1,21 +1,16 @@
-import requests
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+from seller_bot_api import get_products
 
 
 def get_products_keyboard(api_auth, crm_connection):
-    products_response = requests.get(
-        f"http://{crm_connection}/api/fish-shops/",
-        headers=api_auth,
-        timeout=60,
-    )
-    products_response.raise_for_status()
     keyboard = [
         [
             InlineKeyboardButton(
                 product["attributes"]["title"], callback_data=int(product["id"])
             )
         ]
-        for product in products_response.json()["data"]
+        for product in get_products(api_auth, crm_connection)
     ]
     keyboard.append([InlineKeyboardButton("Моя корзина", callback_data="my_cart")])
     return InlineKeyboardMarkup(keyboard)

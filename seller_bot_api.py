@@ -141,3 +141,13 @@ def post_email(username, email, user_id, api_token, crm_connection):
         json=payload,
         timeout=60,
     )
+
+
+def get_products(api_auth, crm_connection):
+    products_response = requests.get(
+        f"http://{crm_connection}/api/fish-shops/",
+        headers=api_auth,
+        timeout=60,
+    )
+    products_response.raise_for_status()
+    return products_response.json()["data"]
