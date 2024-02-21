@@ -30,6 +30,7 @@ def get_or_create_cart(user_id, api_auth, crm_connection):
         json=payload,
         timeout=60,
     )
+    created_cart.raise_for_status()
     return created_cart.json()["data"]["id"]
 
 
@@ -42,7 +43,8 @@ def show_cart(api_auth, cart_id, crm_connection):
         timeout=60,
     )
     if carts_response.status_code == 404:
-        return "В корзину пока не добавлено ни одного товара"
+        return "Для вашего id пока нет корзины. Добывьте хотя бы один товар"
+    carts_response.raise_for_status()
 
     cart_text = []
     cart_buttons = []
@@ -95,12 +97,13 @@ def get_products_in_cart(api_token, crm_connection):
 
 def change_product_quantity(api_token, product_id, quantity, crm_connection):
     payload = {"data": {"quantity": quantity}}
-    requests.put(
+    change_response = requests.put(
         f"http://{crm_connection}/api/cart-products/{product_id}",
         json=payload,
         headers=api_token,
         timeout=60,
     )
+    change_response.raise_for_status()
 
 
 def add_product_to_cart(product_id, cart_id, api_token, crm_connection):
@@ -111,20 +114,22 @@ def add_product_to_cart(product_id, cart_id, api_token, crm_connection):
             "carts": {"connect": [cart_id]},
         }
     }
-    requests.post(
+    add_response = requests.post(
         f"http://{crm_connection}/api/cart-products/",
         headers=api_token,
         json=payload,
         timeout=60,
     )
+    add_response.raise_for_status()
 
 
 def delete_product_from_cart(product, api_token, crm_connection):
-    requests.delete(
+    delete_response = requests.delete(
         f"http://{crm_connection}/api/cart-products/{product}",
         headers=api_token,
         timeout=60,
     )
+    delete_response.raise_for_status()
 
 
 def post_email(username, email, user_id, api_token, crm_connection):
@@ -135,12 +140,13 @@ def post_email(username, email, user_id, api_token, crm_connection):
             "tg_id": str(user_id),
         }
     }
-    requests.post(
+    email_response = requests.post(
         f"http://{crm_connection}/api/customers/",
         headers=api_token,
         json=payload,
         timeout=60,
     )
+    email_response.raise_for_status()
 
 
 def get_products(api_auth, crm_connection):
