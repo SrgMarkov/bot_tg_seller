@@ -35,12 +35,11 @@ logger = logging.getLogger("telegram_bot_seller")
 
 def start(update: Update, context: CallbackContext):
     context.user_data["chat_id"] = update.message.chat_id
-    context.user_data["crm_connection"] = os.getenv('CRM_CONNECTION')
     update.message.reply_text(
         "Товары в наличии:",
         reply_markup=get_products_keyboard(
             context.user_data.get("request_headers"),
-            context.user_data.get("crm_connection"),
+            context.bot_data.get("crm_connection"),
         ),
     )
     return "HANDLE_MENU"
@@ -51,7 +50,7 @@ def get_product_info(update: Update, context: CallbackContext):
     query.answer()
     request_headers = context.user_data.get("request_headers")
     context.user_data["product_id"] = query.data
-    crm_connection = context.user_data.get("crm_connection")
+    crm_connection = context.bot_data.get("crm_connection")
 
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
@@ -65,7 +64,8 @@ def get_product_info(update: Update, context: CallbackContext):
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "CART"
 
@@ -86,7 +86,7 @@ def get_back_product_list(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     request_headers = context.user_data.get("request_headers")
-    crm_connection = context.user_data.get("crm_connection")
+    crm_connection = context.bot_data.get("crm_connection")
 
     if query.data == "back":
         query.message.reply_text(
@@ -94,7 +94,8 @@ def get_back_product_list(update: Update, context: CallbackContext):
             reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "HANDLE_MENU"
     if query.data == "to_cart":
@@ -116,7 +117,8 @@ def get_back_product_list(update: Update, context: CallbackContext):
                     reply_markup=get_products_keyboard(request_headers, crm_connection),
                 )
                 query.bot.delete_message(
-                chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+                    chat_id=context.user_data.get("chat_id"),
+                    message_id=query.message.message_id,
                 )
                 return "HANDLE_MENU"
 
@@ -132,7 +134,8 @@ def get_back_product_list(update: Update, context: CallbackContext):
             reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "HANDLE_MENU"
     if query.data == "my_cart":
@@ -147,7 +150,8 @@ def get_back_product_list(update: Update, context: CallbackContext):
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "CART"
 
@@ -156,20 +160,22 @@ def handle_cart(update: Update, context: CallbackContext):
     query = update.callback_query
     query.answer()
     request_headers = context.user_data.get("request_headers")
-    crm_connection = context.user_data.get("crm_connection")
+    crm_connection = context.bot_data.get("crm_connection")
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
             reply_markup=get_products_keyboard(request_headers, crm_connection),
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "HANDLE_MENU"
     if query.data == "purchase":
         query.message.reply_text("Для оформления заказа пожалуйста введите свой email:")
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "WAITING_CONTACTS"
     try:
@@ -186,7 +192,8 @@ def handle_cart(update: Update, context: CallbackContext):
             cart_text, reply_markup=get_cart_keyboard(cart_buttons)
         )
         query.bot.delete_message(
-        chat_id=context.user_data.get("chat_id"), message_id=query.message.message_id
+            chat_id=context.user_data.get("chat_id"),
+            message_id=query.message.message_id,
         )
         return "CART"
     except Exception:
@@ -198,7 +205,7 @@ def handle_email(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     username = update.message.from_user.name
     request_headers = context.user_data.get("request_headers")
-    crm_connection = context.user_data.get("crm_connection")
+    crm_connection = context.bot_data.get("crm_connection")
 
     post_email(username, user_input, user_id, request_headers, crm_connection)
 
@@ -211,16 +218,12 @@ def handle_email(update: Update, context: CallbackContext):
 
 
 def handle_users_reply(update: Update, context: CallbackContext):
-    if not context.user_data.get("redis_connection"):
-        context.user_data["redis_connection"] = redis.Redis(
-            host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT"))
-        )
     if not context.user_data.get("request_headers"):
         context.user_data["request_headers"] = {
             "Authorization": f"Bearer {os.getenv('STRAPI_TOKEN')}"
         }
 
-    db = context.user_data["redis_connection"]
+    db = context.bot_data.get("redis_connection")
     if update.message:
         user_reply = update.message.text
         chat_id = update.message.chat_id
@@ -255,7 +258,13 @@ if __name__ == "__main__":
     dotenv_path = os.path.join("seller_crm", ".env")
     load_dotenv(dotenv_path)
     updater = Updater(os.getenv("TG_TOKEN"))
+
     dispatcher = updater.dispatcher
+
+    dispatcher.bot_data["crm_connection"] = os.getenv("CRM_CONNECTION")
+    dispatcher.bot_data["redis_connection"] = redis.Redis(
+        host=os.getenv("REDIS_HOST"), port=int(os.getenv("REDIS_PORT"))
+    )
 
     dispatcher.add_handler(CommandHandler("start", handle_users_reply))
     dispatcher.add_handler(CallbackQueryHandler(handle_users_reply))
