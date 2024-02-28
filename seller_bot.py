@@ -21,6 +21,7 @@ from seller_bot_api import (
     get_product_details,
     get_products_in_cart,
     get_or_create_cart,
+    get_products,
     show_cart,
     post_email,
 )
@@ -34,12 +35,12 @@ logger = logging.getLogger("telegram_bot_seller")
 
 
 def start(update: Update, context: CallbackContext):
+    products = get_products(
+        context.user_data.get("request_headers"), context.bot_data.get("crm_connection")
+    )
     update.message.reply_text(
         "Товары в наличии:",
-        reply_markup=get_products_keyboard(
-            context.user_data.get("request_headers"),
-            context.bot_data.get("crm_connection"),
-        ),
+        reply_markup=get_products_keyboard(products),
     )
     return "HANDLE_MENU"
 
@@ -94,17 +95,22 @@ def get_back_product_list(update: Update, context: CallbackContext):
         if update.message
         else update.callback_query.from_user.id
     )
+    products = get_products(
+                    context.user_data.get("request_headers"),
+                    context.bot_data.get("crm_connection"),
+                )
 
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
-            reply_markup=get_products_keyboard(request_headers, crm_connection),
+            reply_markup=get_products_keyboard(products),
         )
         query.bot.delete_message(
             chat_id=user_id,
             message_id=query.message.message_id,
         )
         return "HANDLE_MENU"
+
     if query.data == "to_cart":
         if not user_id:
             user_id = get_or_create_cart(
@@ -121,7 +127,7 @@ def get_back_product_list(update: Update, context: CallbackContext):
                 )
                 query.message.reply_text(
                     "Хотите заказать что то ещё?",
-                    reply_markup=get_products_keyboard(request_headers, crm_connection),
+                    reply_markup=get_products_keyboard(products),
                 )
                 query.bot.delete_message(
                     chat_id=user_id,
@@ -138,13 +144,14 @@ def get_back_product_list(update: Update, context: CallbackContext):
 
         query.message.reply_text(
             "Хотите заказать что то ещё?",
-            reply_markup=get_products_keyboard(request_headers, crm_connection),
+            reply_markup=get_products_keyboard(products),
         )
         query.bot.delete_message(
             chat_id=user_id,
             message_id=query.message.message_id,
         )
         return "HANDLE_MENU"
+
     if query.data == "my_cart":
         cart_text, cart_buttons = show_cart(
             request_headers,
@@ -171,11 +178,15 @@ def handle_cart(update: Update, context: CallbackContext):
         if update.message
         else update.callback_query.from_user.id
     )
+    products = get_products(
+                    context.user_data.get("request_headers"),
+                    context.bot_data.get("crm_connection"),
+                )
 
     if query.data == "back":
         query.message.reply_text(
             "Товары в наличии:",
-            reply_markup=get_products_keyboard(request_headers, crm_connection),
+            reply_markup=get_products_keyboard(products),
         )
         query.bot.delete_message(
             chat_id=user_id,
@@ -224,10 +235,15 @@ def handle_email(update: Update, context: CallbackContext):
 
     post_email(username, user_input, user_id, request_headers, crm_connection)
 
+    products = get_products(
+                    context.user_data.get("request_headers"),
+                    context.bot_data.get("crm_connection"),
+                )
+
     update.message.reply_text(f"{username}, ваш заказ оформлен")
     update.message.reply_text(
         "Желаете заказать что то еще?:",
-        reply_markup=get_products_keyboard(request_headers, crm_connection),
+        reply_markup=get_products_keyboard(products),
     )
     return "HANDLE_MENU"
 
